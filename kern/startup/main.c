@@ -104,6 +104,7 @@ boot(void)
 	kprintf("Griffin's system version %s (%s #%d)\n", 
 		GROUP_VERSION, buildconfig, buildversion);
 	kprintf("\n");
+	hello();
 
 	/* Early initialization. */
 	ram_bootstrap();
