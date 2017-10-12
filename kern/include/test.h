@@ -89,5 +89,7 @@ void menu(char *argstr);
 /* The main function, called from start.S. */
 void kmain(char *bootstring);
 
+int hello();
+
 
 #endif /* _TEST_H_ */
