@@ -35,6 +35,7 @@
  * functions.
  */
 
+int hello(void);
 
 /* This is only actually available if OPT_SYNCHPROBS is set. */
 int whalemating(int, char **);
@@ -42,6 +43,7 @@ int whalemating(int, char **);
 #ifdef UW
 int catmouse(int, char **);
 #endif
+
 
 /*
  * Test code.
@@ -90,6 +92,7 @@ void menu(char *argstr);
 void kmain(char *bootstring);
 
 int hello();
+
 
 
 #endif /* _TEST_H_ */
