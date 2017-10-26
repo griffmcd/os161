@@ -101,11 +101,9 @@ boot(void)
 	kprintf("%s", harvard_copyright);
 	kprintf("\n");
 
-	hello();
 	kprintf("Griffin's system version %s (%s #%d)\n", 
 		GROUP_VERSION, buildconfig, buildversion);
 	kprintf("\n");
-	hello();
 
 	/* Early initialization. */
 	ram_bootstrap();
