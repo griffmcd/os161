@@ -35,6 +35,7 @@
  * functions.
  */
 
+int usertest1(int, char **);
 // int hello(void);
 
 /* This is only actually available if OPT_SYNCHPROBS is set. */
@@ -53,7 +54,6 @@ int catmouse(int, char **);
 int arraytest(int, char **);
 int bitmaptest(int, char **);
 int queuetest(int, char **);
-int usertest1(int, char **);
 
 /* thread tests */
 int threadtest(int, char **);
