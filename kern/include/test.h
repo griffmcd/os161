@@ -35,7 +35,7 @@
  * functions.
  */
 
-int hello(void);
+// int hello(void);
 
 /* This is only actually available if OPT_SYNCHPROBS is set. */
 int whalemating(int, char **);
@@ -53,6 +53,7 @@ int catmouse(int, char **);
 int arraytest(int, char **);
 int bitmaptest(int, char **);
 int queuetest(int, char **);
+int usertest1(int, char **);
 
 /* thread tests */
 int threadtest(int, char **);
@@ -91,7 +92,7 @@ void menu(char *argstr);
 /* The main function, called from start.S. */
 void kmain(char *bootstring);
 
-int hello();
+// int hello();
 
 
 
