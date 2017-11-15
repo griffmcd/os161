@@ -27,73 +27,76 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _TEST_H_
-#define _TEST_H_
-
 /*
- * Declarations for test code and other miscellaneous high-level
- * functions.
+ * Thread test code.
  */
-int threadfun(int, char **);
-int usertest1(int, char **);
-// int hello(void);
+#include <types.h>
+#include <lib.h>
+#include <thread.h>
+#include <synch.h>
+#include <test.h>
 
-/* This is only actually available if OPT_SYNCHPROBS is set. */
-int whalemating(int, char **);
+#define NTHREADS 10 
 
-#ifdef UW
-int catmouse(int, char **);
-#endif
+static struct semaphore *tsem = NULL;
 
+static
+void
+init_sem(void)
+{
+	if (tsem==NULL) {
+		tsem = sem_create("tsem", 0);
+		if (tsem == NULL) {
+			panic("threadtest: sem_create failed\n");
+		}
+	}
+}
 
-/*
- * Test code.
- */
+static
+void
+funthread(void *junk, unsigned long num)
+{
+  int ch= '0' + num;
+  (void)junk;
+  kprintf("%d take a twerd", ch);
+  V(tsem);
+}
 
-/* lib tests */
-int arraytest(int, char **);
-int bitmaptest(int, char **);
-int queuetest(int, char **);
+static
+void
+runfunthreads(int threads)
+{
+	char name[16];
+	int i, result;
 
-/* thread tests */
-int threadtest(int, char **);
-int threadtest2(int, char **);
-int threadtest3(int, char **);
-int semtest(int, char **);
-int locktest(int, char **);
-int cvtest(int, char **);
+	for (i=0; i<threads; i++) {
+		snprintf(name, sizeof(name), "threadtest%d", i);
+		result = thread_fork(name, NULL,
+				     funthread,
+				     NULL, i);
+		if (result) {
+			panic("threadtest: thread_fork failed %s)\n", 
+			      strerror(result));
+		}
+	}
 
-#ifdef UW
-/* Another thread and synchronization test */
-int uwlocktest1(int, char **);
-/* Used to test uw-vmstats */
-int uwvmstatstest(int, char **);
-#endif
-
-/* filesystem tests */
-int fstest(int, char **);
-int readstress(int, char **);
-int writestress(int, char **);
-int writestress2(int, char **);
-int createstress(int, char **);
-int printfile(int, char **);
-
-/* other tests */
-int malloctest(int, char **);
-int mallocstress(int, char **);
-int nettest(int, char **);
-
-/* Routine for running a user-level program. */
-int runprogram(char *progname);
-
-/* Kernel menu system. */
-void menu(char *argstr);
-
-/* The main function, called from start.S. */
-void kmain(char *bootstring);
-
-// int hello();
+	for (i=0; i<NTHREADS; i++) {
+		P(tsem);
+	}
+}
 
 
+int
+threadfun(int nargs, char **args)
+{
+	(void)nargs;
+	// (void)args;
+  int n_threads = *args[1];
 
-#endif /* _TEST_H_ */
+	init_sem();
+	kprintf("Starting thread test...\n");
+	runfunthreads(n_threads);
+	kprintf("\nThread test done.\n");
+
+	return 0;
+}

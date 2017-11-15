@@ -146,6 +146,8 @@ common_prog(int nargs, char **args)
 			proc /* new process */,
 			cmd_progthread /* thread function */,
 			args /* thread arg */, nargs /* thread arg */);
+
+  for(int i = 0; i < 200000; ++i); // temp code
 	if (result) {
 		kprintf("thread_fork failed: %s\n", strerror(result));
 		proc_destroy(proc);
@@ -155,7 +157,7 @@ common_prog(int nargs, char **args)
 #ifdef UW
 	/* wait until the process we have just launched - and any others that it 
 	   may fork - is finished before proceeding */
-	P(no_proc_sem);
+	 P(no_proc_sem);
 #endif // UW
 
 	return 0;
@@ -459,6 +461,7 @@ static const char *testmenu[] = {
 	"[tt1] Thread test 1                 ",
 	"[tt2] Thread test 2                 ",
 	"[tt3] Thread test 3                 ",
+  "[tft] Thread Fun Test               ",
 #if OPT_NET
 	"[net] Network test                  ",
 #endif
@@ -572,6 +575,7 @@ static struct {
 	{ "tt1",	threadtest },
 	{ "tt2",	threadtest2 },
 	{ "tt3",	threadtest3 },
+  { "tft",  threadfun },
 	{ "sy1",	semtest },
 
 	/* synchronization assignment tests */
@@ -588,6 +592,7 @@ static struct {
 	{ "fs3",	writestress },
 	{ "fs4",	writestress2 },
 	{ "fs5",	createstress },
+  /* User defined tests */
   { "ut1",  usertest1 },
 
 	{ NULL, NULL }
