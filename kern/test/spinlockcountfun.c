@@ -37,67 +37,85 @@
 #include <test.h>
 
 #define NTHREADS 10 
+static volatile int COUNT=0;
+static struct semaphore * tsem = NULL;
+static struct spinlock * slock = NULL;
 
-static struct semaphore *tsem = NULL;
-
-static
-void
-init_sem(void)
-{
-	if (tsem==NULL) {
-		tsem = sem_create("tsem", 0);
-		if (tsem == NULL) {
-			panic("threadtest: sem_create failed\n");
-		}
-	}
+static void init_spinlock(void) {
+  if(tsem==NULL) {
+    tsem = sem_create("tsem", 0);
+    if(tsem==NULL) {
+      panic("spinlockcountfun: sempahore_create failed\n");
+    }
+  }
+  if(slock==NULL) {
+    slock = kmalloc(sizeof(struct spinlock));
+    if(slock==NULL) {
+      panic("spinlockcountfun: spinlock_create failed\n");
+    }
+  }
+  spinlock_init(slock);
 }
 
-static
-void
-funthread(void *junk, unsigned long num)
-{
-  int ch= '0' + num;
+static void cleanitems(void) {
+  kprintf("cleanitems: Destroying sems and locks\n");
+  if(tsem != NULL) {
+    sem_destroy(tsem);
+    tsem = NULL;
+  }
+  if(slock != NULL) {
+    spinlock_cleanup(slock);
+    kfree(slock);
+    slock = NULL;
+  }
+  COUNT = 0;
+}
+
+static void spinlockthread(void * junk, unsigned long num) {
   (void)junk;
-  kprintf("%d", ch);
-  // kprintf("%d take a twerd", ch);
+  int i;
+  int limit = (int) num;
+  for(i=0; i < limit; ++i) {
+    spinlock_acquire(slock);
+    COUNT++;
+    spinlock_release(slock);
+  }
   V(tsem);
 }
 
-static
-void
-runfunthreads(int threads)
-{
-	char name[16];
-	int i, result;
-
-	for (i=0; i<threads; i++) {
-		snprintf(name, sizeof(name), "threadtest%d", i);
-		result = thread_fork(name, NULL,
-				     funthread,
-				     NULL, i);
-		if (result) {
-			panic("threadtest: thread_fork failed %s)\n", 
-			      strerror(result));
-		}
-	}
-
-	for (i=0; i<threads; i++) {
-		P(tsem);
-	}
+static void spinthreadcounter(int threads, int inc) {
+  char name[16];
+  int i, result;
+  for(i=0; i<threads; ++i) {
+    snprintf(name, sizeof(name), "spinlock counter test %d", i);
+    result = thread_fork(name, NULL, spinlockthread, NULL, inc);
+    if(result) {
+      panic("spinlock thread counter test: thread_fork failed %s)\n",
+          strerror(result));
+    }
+  }
+  for(i=0; i<threads; ++i) {
+    P(tsem);
+  }
+  // thread_exit();
 }
 
-
-int
-threadfun(int nargs, char **args)
-{
-	(void)nargs;
-	// (void)args;
+int spincountfun(int nargs, char ** args) {
   int n_threads = atoi(args[1]);
-	init_sem();
-  kprintf("%d threads\n", n_threads);
-	kprintf("Starting thread test...\n");
-	runfunthreads(n_threads);
-	kprintf("\nThread test done.\n");
-
-	return 0;
+  int n_inc;
+  if(nargs <3) {
+    n_inc = 1;
+  }else {
+    n_inc = atoi(args[2]);
+  }
+  init_spinlock();
+  kprintf("count is %d\n", COUNT);
+  kprintf("starting spinlock counter test...\n");
+  spinthreadcounter(n_threads, n_inc);
+  kprintf("\n spinlock counter test done.\n");
+  kprintf("count should be %d\n", (n_threads * n_inc));
+  kprintf("count is %d\n", COUNT);
+  cleanitems();
+  return 0;
 }
+

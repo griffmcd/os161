@@ -251,9 +251,18 @@ cv_create(const char *name)
                 kfree(cv);
                 return NULL;
         }
-        
-        // add stuff here as needed
-        
+        cv->cv_wchan = wchan_create(cv->cv_name);
+        if(cv->cv_wchan==NULL) {
+          kfree(cv->cv_name);
+          kfree(cv);
+        }
+        cv->cv_lock = lock_create(cv->cv_name);
+        if(cv->cv_lock==NULL) {
+          kfree(cv->cv_wchan);
+          kfree(cv->cv_name);
+          kfree(cv);
+        }
+        cv->done = 0;
         return cv;
 }
 
@@ -261,9 +270,10 @@ void
 cv_destroy(struct cv *cv)
 {
         KASSERT(cv != NULL);
+        wchan_destroy(cv->cv_wchan);
+        lock_destroy(cv->cv_lock);
 
         // add stuff here as needed
-        
         kfree(cv->cv_name);
         kfree(cv);
 }

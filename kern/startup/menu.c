@@ -478,6 +478,9 @@ static const char *testmenu[] = {
 	"[fs4] FS write stress 2     (4)     ",
 	"[fs5] FS create stress      (4)     ",
   "[ut1] User test 1                   ",
+  "[utc] Unsafe Thread Counter         ",
+  "[ltc] Lock Thread Counter           ",
+  "[stc] Spinlock Thread Counter       ",
 	NULL
 };
 
@@ -576,6 +579,9 @@ static struct {
 	{ "tt2",	threadtest2 },
 	{ "tt3",	threadtest3 },
   { "tft",  threadfun },
+  { "utc", counterfun },
+  { "ltc", lockcountfun },
+  { "stc", spincountfun },
 	{ "sy1",	semtest },
 
 	/* synchronization assignment tests */

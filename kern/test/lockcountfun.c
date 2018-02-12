@@ -37,67 +37,85 @@
 #include <test.h>
 
 #define NTHREADS 10 
+static volatile int COUNT=0;
 
 static struct semaphore *tsem = NULL;
+static struct lock * c_lock = NULL;
 
-static
-void
-init_sem(void)
-{
-	if (tsem==NULL) {
-		tsem = sem_create("tsem", 0);
-		if (tsem == NULL) {
-			panic("threadtest: sem_create failed\n");
-		}
-	}
+static void init_lock(void) {
+  if(tsem==NULL) {
+    tsem = sem_create("tsem", 0);
+    if(tsem == NULL) {
+      panic("lockcountfun: sem_create failed\n");
+    }
+  }
+  if(c_lock==NULL) {
+    c_lock = lock_create("countlock");
+    if(c_lock == NULL) {
+      panic("lockcountfun: lock_create failed\n");
+    }
+  }
 }
 
-static
-void
-funthread(void *junk, unsigned long num)
-{
-  int ch= '0' + num;
+static void destroy_all(void) {
+  kprintf("cleanitems: Destroying sems and locks\n");
+  if(tsem != NULL) {
+    sem_destroy(tsem);
+    tsem = NULL;
+  }
+  if(c_lock != NULL) {
+    lock_destroy(c_lock);
+    c_lock = NULL;
+  }
+  COUNT = 0;
+}
+
+
+static void lockthread(void * junk, unsigned long num) {
   (void)junk;
-  kprintf("%d", ch);
-  // kprintf("%d take a twerd", ch);
+  int i;
+  int limit = (int) num;
+  for(i=0; i < limit; ++i) {
+    lock_acquire(c_lock);
+    COUNT++;
+    lock_release(c_lock);
+  }
   V(tsem);
 }
 
-static
-void
-runfunthreads(int threads)
-{
-	char name[16];
-	int i, result;
-
-	for (i=0; i<threads; i++) {
-		snprintf(name, sizeof(name), "threadtest%d", i);
-		result = thread_fork(name, NULL,
-				     funthread,
-				     NULL, i);
-		if (result) {
-			panic("threadtest: thread_fork failed %s)\n", 
-			      strerror(result));
-		}
-	}
-
-	for (i=0; i<threads; i++) {
-		P(tsem);
-	}
+static void lockthreadcounter(int threads, int inc) {
+  char name[16];
+  int i, result;
+  for(i=0; i<threads; ++i) {
+    snprintf(name, sizeof(name), "lock counter test %d", i);
+    result = thread_fork(name, NULL, lockthread, NULL, inc);
+    if(result) {
+      panic("lock thread counter test: thread_fork failed %s)\n",
+          strerror(result));
+    }
+  }
+  for(i=0; i < threads; ++i) {
+    P(tsem);
+  }
+  // thread_exit();
 }
 
-
-int
-threadfun(int nargs, char **args)
-{
-	(void)nargs;
-	// (void)args;
+int lockcountfun(int nargs, char ** args) {
   int n_threads = atoi(args[1]);
-	init_sem();
-  kprintf("%d threads\n", n_threads);
-	kprintf("Starting thread test...\n");
-	runfunthreads(n_threads);
-	kprintf("\nThread test done.\n");
-
-	return 0;
+  int n_inc;
+  if(nargs < 3) {
+    n_inc = 1;
+  }else {
+    n_inc = atoi(args[2]);
+  }
+  init_lock();
+  kprintf("count is %d\n", COUNT);
+  kprintf("Starting lock counter test...\n");
+  lockthreadcounter(n_threads, n_inc);
+  kprintf("\n lock counter test done.\n");
+  kprintf("count should be %d\n", (n_threads * n_inc));
+  kprintf("count is %d\n", COUNT);
+  destroy_all();
+  return 0;
 }
+

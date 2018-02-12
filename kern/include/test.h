@@ -36,6 +36,9 @@
  */
 int threadfun(int, char **);
 int usertest1(int, char **);
+int counterfun(int, char **);
+int lockcountfun(int, char**);
+int spincountfun(int, char**);
 // int hello(void);
 
 /* This is only actually available if OPT_SYNCHPROBS is set. */

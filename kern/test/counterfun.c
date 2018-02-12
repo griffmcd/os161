@@ -37,6 +37,7 @@
 #include <test.h>
 
 #define NTHREADS 10 
+static volatile int COUNT=0;
 
 static struct semaphore *tsem = NULL;
 
@@ -52,52 +53,59 @@ init_sem(void)
 	}
 }
 
-static
-void
-funthread(void *junk, unsigned long num)
-{
-  int ch= '0' + num;
+static void destroy_all(void) {
+  if(tsem != NULL) { 
+    sem_destroy(tsem);
+    tsem = NULL;
+  }
+}
+
+static void unsafethread(void *junk,unsigned long num) {
   (void)junk;
-  kprintf("%d", ch);
-  // kprintf("%d take a twerd", ch);
+  int i;
+  int limit = (int) num;
+  for(i=0; i < limit; ++i) {
+    COUNT++;
+  }
   V(tsem);
 }
 
-static
-void
-runfunthreads(int threads)
-{
-	char name[16];
-	int i, result;
-
-	for (i=0; i<threads; i++) {
-		snprintf(name, sizeof(name), "threadtest%d", i);
-		result = thread_fork(name, NULL,
-				     funthread,
-				     NULL, i);
-		if (result) {
-			panic("threadtest: thread_fork failed %s)\n", 
-			      strerror(result));
-		}
-	}
-
-	for (i=0; i<threads; i++) {
-		P(tsem);
-	}
+static void unsafethreadcounter(int threads, int inc) {
+  char name[16];
+  int i, result;
+  for(i=0; i<threads; ++i) {
+    snprintf(name, sizeof(name), "unsafe counter test %d", i);
+    result = thread_fork(name, NULL, unsafethread, NULL, inc);
+    if(result) {
+      panic("unsafe thread counter test: thread_fork failed %s)\n",
+          strerror(result));
+    }
+  }
+  for(i=0; i < threads; ++i) {
+    P(tsem);
+  }
 }
 
-
 int
-threadfun(int nargs, char **args)
+counterfun(int nargs, char ** args)
 {
-	(void)nargs;
+	//(void)nargs;
 	// (void)args;
   int n_threads = atoi(args[1]);
+  int n_inc;
+  if(nargs < 3) {
+    n_inc = 1;
+  }else {
+    n_inc = atoi(args[2]);
+  }
 	init_sem();
-  kprintf("%d threads\n", n_threads);
-	kprintf("Starting thread test...\n");
-	runfunthreads(n_threads);
-	kprintf("\nThread test done.\n");
+  kprintf("count is %d\n", COUNT);
+	kprintf("Starting counter test...\n");
+	unsafethreadcounter(n_threads, n_inc);
+	kprintf("\ncounter test done.\n");
+  destroy_all();
+  kprintf("count should be %d\n", (n_threads * n_inc));
+  kprintf("count is %d\n", COUNT);
 
 	return 0;
 }
