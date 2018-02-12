@@ -243,18 +243,19 @@ cv_create(const char *name)
 
         cv = kmalloc(sizeof(struct cv));
         if (cv == NULL) {
-                return NULL;
+          return NULL;
         }
 
         cv->cv_name = kstrdup(name);
         if (cv->cv_name==NULL) {
-                kfree(cv);
-                return NULL;
+          kfree(cv);
+          return NULL;
         }
         cv->cv_wchan = wchan_create(cv->cv_name);
         if(cv->cv_wchan==NULL) {
           kfree(cv->cv_name);
           kfree(cv);
+          return NULL;
         }
         cv->cv_lock = lock_create(cv->cv_name);
         if(cv->cv_lock==NULL) {
@@ -269,35 +270,46 @@ cv_create(const char *name)
 void
 cv_destroy(struct cv *cv)
 {
-        KASSERT(cv != NULL);
-        wchan_destroy(cv->cv_wchan);
-        lock_destroy(cv->cv_lock);
+  KASSERT(cv != NULL);
+  wchan_destroy(cv->cv_wchan);
+  lock_destroy(cv->cv_lock);
 
-        // add stuff here as needed
-        kfree(cv->cv_name);
-        kfree(cv);
+  kfree(cv->cv_name);
+  kfree(cv);
 }
 
 void
 cv_wait(struct cv *cv, struct lock *lock)
 {
-        // Write this
-        (void)cv;    // suppress warning until code gets written
-        (void)lock;  // suppress warning until code gets written
+  KASSERT(cv != NULL);
+  KASSERT(lock != NULL);
+  KASSERT(curthread->t_in_interrupt == false);
+  lock_release(lock);
+  wchan_lock(cv->cv_wchan);
+  wchan_sleep(cv->cv_wchan);
+  lock_acquire(lock);
 }
 
 void
 cv_signal(struct cv *cv, struct lock *lock)
 {
-        // Write this
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+  KASSERT(cv != NULL);
+  KASSERT(lock != NULL);
+  KASSERT(curthread->t_in_interrupt == false);
+  if(!(wchan_isempty(cv->cv_wchan))) {
+    wchan_wakeone(cv->cv_wchan);
+    lock_release(lock);
+  }
 }
 
 void
 cv_broadcast(struct cv *cv, struct lock *lock)
 {
-	// Write this
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+  KASSERT(cv != NULL);
+  KASSERT(lock != NULL);
+  KASSERT(curthread->t_in_interrupt == false);
+  if(!wchan_isempty(cv->cv_wchan)) {
+    wchan_wakeall(cv->cv_wchan);
+    lock_release(lock);
+  }
 }

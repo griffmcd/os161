@@ -441,6 +441,9 @@ file		test/synchtest.c
 file		test/malloctest.c
 file		test/fstest.c
 file    test/threadfun.c
+file    test/counterfun.c
+file    test/lockcountfun.c
+file    test/spinlockcountfun.c
 optfile net	test/nettest.c
 # UW Mod
 file    test/uw-tests.c
