@@ -61,10 +61,14 @@ runprogram(char *progname)
 
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, 0, &v);
+
 	if (result) {
+    struct proc * c_proc = curproc;
+    proc_remthread(curthread);
+    proc_destroy(c_proc);
+    thread_exit();
 		return result;
 	}
-
 	/* We should be a new process. */
 	KASSERT(curproc_getas() == NULL);
 
@@ -84,6 +88,7 @@ runprogram(char *progname)
 	if (result) {
 		/* p_addrspace will go away when curproc is destroyed */
 		vfs_close(v);
+    // proc_destroy(curproc);
 		return result;
 	}
 

@@ -121,6 +121,7 @@ proc_destroy(struct proc *proc)
          * from the process.
 	 */
 
+
 	KASSERT(proc != NULL);
 	KASSERT(proc != kproc);
 
@@ -183,9 +184,7 @@ proc_destroy(struct proc *proc)
 	}
 	V(proc_count_mutex);
 #endif // UW
-	
-
-}
+}	
 
 /*
  * Create the process structure for the kernel.
@@ -199,6 +198,7 @@ proc_bootstrap(void)
   }
 #ifdef UW
   proc_count = 0;
+  kprintf("proc_count: %d\n", proc_count);
   proc_count_mutex = sem_create("proc_count_mutex",1);
   if (proc_count_mutex == NULL) {
     panic("could not create proc_count_mutex semaphore\n");
