@@ -102,6 +102,7 @@ vfs_open(char *path, int openflags, mode_t mode, struct vnode **ret)
 		else {
 			result = VOP_TRUNCATE(vn, 0);
 		}
+
 		if (result) {
 			VOP_DECOPEN(vn);
 			VOP_DECREF(vn);
@@ -110,7 +111,6 @@ vfs_open(char *path, int openflags, mode_t mode, struct vnode **ret)
 	}
 
 	*ret = vn;
-
 	return 0;
 }
 
