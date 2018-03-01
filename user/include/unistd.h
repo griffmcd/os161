@@ -117,7 +117,7 @@
 /* Required. */
 __DEAD void _exit(int code);
 int execv(const char *prog, char *const *args);
-pid_t fork(void);
+int fork(void);
 int waitpid(pid_t pid, int *returncode, int flags);
 /* 
  * Open actually takes either two or three args: the optional third

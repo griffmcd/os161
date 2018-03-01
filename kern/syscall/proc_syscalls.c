@@ -93,3 +93,8 @@ sys_waitpid(pid_t pid,
   return(0);
 }
 
+int sys_fork(pid_t *retval) {
+  pid_t pid = 1;
+  *retval = pid;
+  return(0);
+}
