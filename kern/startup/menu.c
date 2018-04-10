@@ -147,7 +147,6 @@ common_prog(int nargs, char **args)
 			cmd_progthread /* thread function */,
 			args /* thread arg */, nargs /* thread arg */);
 
-  for(int i = 0; i < 200000; ++i); // temp code
 	if (result) {
 		kprintf("thread_fork failed: %s\n", strerror(result));
 		proc_destroy(proc);

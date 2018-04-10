@@ -35,6 +35,7 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
+#include <proc.h>
 
 
 /*
@@ -128,10 +129,11 @@ syscall(struct trapframe *tf)
 			    (userptr_t)tf->tf_a1,
 			    (int)tf->tf_a2,
 			    (pid_t *)&retval);
-  case SYS_fork:
-    err = sys_fork((pid_t *)&retval);
-	  break;
 #endif // UW
+  case SYS_fork:
+    err = sys_fork((struct trapframe *) tf,
+                   (pid_t *)&retval);
+	  break;
 
 	    /* Add stuff here */
  
@@ -179,7 +181,28 @@ syscall(struct trapframe *tf)
  * Thus, you can trash it and do things another way if you prefer.
  */
 void
-enter_forked_process(struct trapframe *tf)
+enter_forked_process(void *tf)
 {
-	(void)tf;
+  // Declare child trapframe here so it is on the child process stack;
+  struct trapframe * temp_tf, child_tf;
+  // copy the parent trapfram into the local trapframe
+  temp_tf = (struct trapframe *) tf;
+
+
+  // modify the local trapframe (child_tf) to pass back pid==0 for the child
+  temp_tf->tf_v0 = 0;
+  temp_tf->tf_a3 = 0; // signal no error
+  // we need a pointer to the child_tf for mips_usermode
+  temp_tf->tf_epc += 4;
+  child_tf = *temp_tf;
+  mips_usermode(&child_tf);
+  // sys_fork() system call returns to user mode in the child process through this 
+  // function via thread_fork. THat means that the tail end of syscall must be done 
+  // here for the child.
+  // advance program counter, to avoid restarting this 
+  // we may not need to do this, I'm not sure what tail end of syscall entails exactly
+  // make sure we didn't forget to lower the SPL
+  KASSERT(curthread->t_curspl == 0);
+  // ... or leak any spinlocks
+  KASSERT(curthread->t_iplhigh_count == 0);
 }

@@ -9,8 +9,8 @@
 #include <proc.h>
 #include <thread.h>
 #include <addrspace.h>
-#include <copyinout.h>
-
+#include <copyinout.h> 
+#include <mips/trapframe.h>
   /* this implementation of sys__exit does not do anything with the exit code */
   /* this needs to be fixed to get exit() and waitpid() working properly */
 
@@ -56,7 +56,7 @@ sys_getpid(pid_t *retval)
 {
   /* for now, this is just a stub that always returns a PID of 1 */
   /* you need to fix this to make it work properly */
-  *retval = 1;
+  *retval = curproc->p_pid;
   return(0);
 }
 
@@ -92,9 +92,68 @@ sys_waitpid(pid_t pid,
   *retval = pid;
   return(0);
 }
+void uproc_thread(void *temp_tr, unsigned long k);
 
-int sys_fork(pid_t *retval) {
-  pid_t pid = 1;
-  *retval = pid;
-  return(0);
+void uproc_thread(void *temp_tr, unsigned long k) {
+  (void) k;
+  enter_forked_process(temp_tr);
+}
+
+int sys_fork(struct trapframe * tf, pid_t *retval) {
+  // Declare temporary trapframe
+  struct trapframe * temp_tf;
+  // declare addrspace for child
+  struct addrspace * child_vmspace = NULL;
+  // our child process
+  struct proc * child_proc;
+  // what thread_fork returns to (for error handling)
+  int err;
+  DEBUG(DB_SYSCALL, "Syscall: sys_fork()\n");
+
+  // allocate the temporary trapframe. this is critical, so we KASSERT.
+  temp_tf = kmalloc(sizeof(struct trapframe));
+  if(temp_tf == NULL) {
+    panic("Error allocating temporary trapframe in sys_fork\n");
+  }
+  KASSERT(temp_tf != NULL);
+  // copy the address space
+  KASSERT(child_vmspace == NULL);
+  as_copy(curproc->p_addrspace, &child_vmspace);
+  if(child_vmspace == NULL) {
+    kprintf("sys_fork: as_copy failed %s\n", strerror(ENOMEM));
+    return ENOMEM;
+  }
+  // call proc_create_fork to create new proc struct for uproc_thread
+  child_proc = proc_create_runprogram(curproc->p_name);
+
+  // fill in address space field of proc struct (as created above)
+  child_proc->p_addrspace = child_vmspace;
+
+  /* Copy the parent trap frame to temporary trapfram.
+   * This is the first of two trapframe compies in the fork transition from 
+   * the parent to the child.
+   * Note this only does a one level copy, but trap frames don't have pointers
+   * except for what we'll fill in from here on.
+   */
+  *temp_tf = *tf;
+
+  // call thread_fork with proc, uproc_thread, and temp_tf. 
+  err = thread_fork(child_proc->p_name, child_proc, uproc_thread, temp_tf, 0);
+  if(err) {
+    return err;
+  }
+  // fill in the pid field of new proc struct with a stub value until you finish your 
+  // pid allocation system (I think we already did this in proc_create_fork? maybe remove)
+  // child_proc->p_pid = 666;
+
+  // for debugging
+  // kprintf("Parent returning after thread fork\n");
+
+  // Parent returns to syscall dispatcher (in syscall.c) with the child PID
+  *retval = (child_proc->p_pid);
+  // *retval = 2; // stub
+
+  // for debugging
+  // kprintf("Parent finally leaving sys_fork\n");
+  return (0);
 }

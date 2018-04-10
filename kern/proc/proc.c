@@ -166,7 +166,6 @@ proc_destroy(struct proc *proc)
 
 	threadarray_cleanup(&proc->p_threads);
 	spinlock_cleanup(&proc->p_lock);
-
 	kfree(proc->p_name);
 	kfree(proc);
 
@@ -210,6 +209,59 @@ proc_bootstrap(void)
 #endif // UW 
 }
 
+struct proc * proc_create_fork(const char *name) {
+  struct proc *proc;
+  char * console_path;
+
+  proc = proc_create(name);
+  if(proc == NULL) {
+    return NULL;
+  }
+#ifdef UW
+  /* open the console. This (should) always succeed. */
+  console_path = kstrdup("con:");
+  if(console_path == NULL) {
+    panic("unable to copy console path during process creation\n");
+  }
+  if(vfs_open(console_path, O_WRONLY, 0, &(proc->console))) {
+    panic("unable to open the console during process creation\n");
+  }
+  kfree(console_path);
+#endif // UW
+  // pid stuff and addrspace init'ing. We don't have to check if the pid is 0, 
+  // because fork() will always be called from a user thread, so incrementing
+  // the parent thread's curproc is fine for now
+  proc->p_pid = curproc->p_pid + 1;
+  proc->p_ppid = curproc->p_pid;
+  proc->p_pproc = curproc;
+	proc->p_addrspace = NULL;
+
+#ifdef UW
+	/* we do not need to acquire the p_lock here, the running thread should
+   * have the only reference to this process 
+   * although this might be different with our fork, so check back on this */
+  /* also, acquiring the p_lock is problematic because VOP_INCREF may block */
+	if (curproc->p_cwd != NULL) {
+		VOP_INCREF(curproc->p_cwd);
+		proc->p_cwd = curproc->p_cwd;
+	}
+#else // UW
+	spinlock_acquire(&curproc->p_lock);
+	if (curproc->p_cwd != NULL) {
+		VOP_INCREF(curproc->p_cwd);
+		proc->p_cwd = curproc->p_cwd;
+	}
+	spinlock_release(&curproc->p_lock);
+#endif // UW
+
+#ifdef UW
+	/* increment the count of processes */
+	P(proc_count_mutex); 
+	proc_count++;
+	V(proc_count_mutex);
+#endif // UW
+	return proc;
+}
 /*
  * Create a fresh proc for use by runprogram.
  *
@@ -239,6 +291,17 @@ proc_create_runprogram(const char *name)
 	kfree(console_path);
 #endif // UW
 	  
+  /* PID fields */
+  if(curproc->p_pid != 0) {
+    proc->p_pid = curproc->p_pid + 1;
+    proc->p_ppid = curproc->p_pid;
+    proc->p_pproc = curproc;
+  }else {
+    proc->p_pid = 1;
+    proc->p_ppid = 0;
+    proc->p_pproc = kproc;
+  }
+
 	/* VM fields */
 
 	proc->p_addrspace = NULL;

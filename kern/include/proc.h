@@ -69,6 +69,25 @@ struct proc {
 #endif
 
 	/* add more material here as needed */
+  pid_t p_pid;
+  // parent process--this is temporary, we won't need it later
+  pid_t p_ppid;
+  struct proc * p_pproc;
+
+  // this is stuff we'll design and code in labs 11 and 12
+
+  // exit, exitcode, and waitpid synchronization stuff
+  // need a design for this. syscall specifications requre that a child
+  // maintain it's exit status after finishing so long as the parent 
+  // may want to do a waitpid
+  
+  // fork, exit, proc_destroy synch stuff
+  // we need a design for child-parent synchronization.
+  // when can a proc be destroyed? when must it hang around? for how long?
+  // who destroys the proc--self or parent?
+  // what about all the fields in the proc? When can they be released?
+  // Does the kernel have to make sure parents hang around for all their 
+  // children to finish? If not, what happens to the orphaned children?
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -84,6 +103,9 @@ void proc_bootstrap(void);
 
 /* Create a fresh process for use by runprogram(). */
 struct proc *proc_create_runprogram(const char *name);
+
+/* Create a fresh process for use by sysfork, I believe */
+struct proc * proc_create_fork(const char * name);
 
 /* Destroy a process. */
 void proc_destroy(struct proc *proc);

@@ -783,6 +783,11 @@ thread_exit(void)
 	struct thread *cur;
 
 	cur = curthread;
+  // this is a hacky fix for when a process doesn't go through sys__exit, but 
+  // we still need to detach the thread
+  if(curproc != NULL && curproc != kproc) {
+    proc_remthread(cur);
+  }
 
 #ifdef UW
 	/* threads for user processes should have detached from their process
