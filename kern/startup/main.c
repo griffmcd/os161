@@ -96,6 +96,9 @@ boot(void)
 	 * dev/generic/console.c).
 	 */
 
+
+                                                                             
+
 	kprintf("\n");
 	kprintf("OS/161 base system version %s\n", BASE_VERSION);
 	kprintf("%s", harvard_copyright);
@@ -125,7 +128,18 @@ boot(void)
 	vm_bootstrap();
 	kprintf_bootstrap();
 	thread_start_cpus();
-
+  kprintf("      ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄             ▄▄▄▄      ▄▄▄▄▄▄▄▄▄▄▄     ▄▄▄▄     \n");
+  kprintf("     ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌          ▄█░░░░▌    ▐░░░░░░░░░░░▌  ▄█░░░░▌    \n");
+  kprintf("     ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀          ▐░░▌▐░░▌    ▐░█▀▀▀▀▀▀▀▀▀  ▐░░▌▐░░▌    \n");
+  kprintf("     ▐░▌       ▐░▌▐░▌                    ▀▀ ▐░░▌    ▐░▌            ▀▀ ▐░░▌    \n");
+  kprintf("     ▐░▌       ▐░▌▐░█▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄ ▐░░▌    ▐░█▄▄▄▄▄▄▄▄▄      ▐░░▌    \n");
+  kprintf("     ▐░▌       ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░▌    ▐░░░░░░░░░░░▌     ▐░░▌    \n");
+  kprintf("     ▐░▌       ▐░▌ ▀▀▀▀▀▀▀▀▀█░▌ ▀▀▀▀▀▀▀▀▀▀▀ ▐░░▌    ▐░█▀▀▀▀▀▀▀█░▌     ▐░░▌    \n");
+  kprintf("     ▐░▌       ▐░▌          ▐░▌             ▐░░▌    ▐░▌       ▐░▌     ▐░░▌    \n");
+  kprintf("     ▐░█▄▄▄▄▄▄▄█░▌ ▄▄▄▄▄▄▄▄▄█░▌         ▄▄▄▄█░░█▄▄▄ ▐░█▄▄▄▄▄▄▄█░▌ ▄▄▄▄█░░█▄▄▄ \n");
+  kprintf("     ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌        ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌\n");
+  kprintf("      ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀          ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀ \n");
+ 
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
 	vfs_setbootfs("emu0");
 
@@ -135,6 +149,7 @@ boot(void)
 	 */
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));
+
 }
 
 /*

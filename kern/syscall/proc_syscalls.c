@@ -50,12 +50,10 @@ void sys__exit(int exitcode) {
 }
 
 
-/* stub handler for getpid() system call                */
+/* getpid system call */
 int
 sys_getpid(pid_t *retval)
 {
-  /* for now, this is just a stub that always returns a PID of 1 */
-  /* you need to fix this to make it work properly */
   *retval = curproc->p_pid;
   return(0);
 }
@@ -124,7 +122,7 @@ int sys_fork(struct trapframe * tf, pid_t *retval) {
     return ENOMEM;
   }
   // call proc_create_fork to create new proc struct for uproc_thread
-  child_proc = proc_create_runprogram(curproc->p_name);
+  child_proc = proc_create_fork(curproc->p_name);
 
   // fill in address space field of proc struct (as created above)
   child_proc->p_addrspace = child_vmspace;
@@ -142,18 +140,8 @@ int sys_fork(struct trapframe * tf, pid_t *retval) {
   if(err) {
     return err;
   }
-  // fill in the pid field of new proc struct with a stub value until you finish your 
-  // pid allocation system (I think we already did this in proc_create_fork? maybe remove)
-  // child_proc->p_pid = 666;
-
-  // for debugging
-  // kprintf("Parent returning after thread fork\n");
 
   // Parent returns to syscall dispatcher (in syscall.c) with the child PID
   *retval = (child_proc->p_pid);
-  // *retval = 2; // stub
-
-  // for debugging
-  // kprintf("Parent finally leaving sys_fork\n");
   return (0);
 }

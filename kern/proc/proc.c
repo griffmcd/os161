@@ -50,11 +50,14 @@
 #include <vfs.h>
 #include <synch.h>
 #include <kern/fcntl.h>  
+#include <limits.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
+struct proc ** proc_table;
+int next_pid;
 
 /*
  * Mechanism for making the kernel menu thread sleep while processes are running
@@ -124,6 +127,8 @@ proc_destroy(struct proc *proc)
 
 	KASSERT(proc != NULL);
 	KASSERT(proc != kproc);
+  // clear entry from the proc_table
+  proc_table[proc->p_pid] = NULL;
 
 	/*
 	 * We don't take p_lock in here because we must have the only
@@ -191,6 +196,8 @@ proc_destroy(struct proc *proc)
 void
 proc_bootstrap(void)
 {
+  proc_table = kmalloc(PID_MAX * sizeof(struct proc *));
+  next_pid = PID_MIN;
   kproc = proc_create("[kernel]");
   if (kproc == NULL) {
     panic("proc_create for kproc failed\n");
@@ -228,10 +235,45 @@ struct proc * proc_create_fork(const char *name) {
   }
   kfree(console_path);
 #endif // UW
-  // pid stuff and addrspace init'ing. We don't have to check if the pid is 0, 
-  // because fork() will always be called from a user thread, so incrementing
-  // the parent thread's curproc is fine for now
-  proc->p_pid = curproc->p_pid + 1;
+  /*
+   * pid allocation. We don't have to check if the pid is 0, 
+   * because fork() will always be called from a user thread, so incrementing
+   * the parent thread's curproc is fine for now
+   *
+   * if the next_pid is less than PID_MAX (and there is not a current 
+   * process in the process table at that index) then we can just use the
+   * next pid. otherwise we have to loop starting from next_pid until we 
+   * find an empty location in the proc_table.
+   */
+  if(next_pid <= PID_MAX) {
+    if(proc_table[next_pid] == NULL) { // next_pid is available
+      proc->p_pid = next_pid;
+      proc_table[next_pid] = proc;
+      next_pid += 1;
+    }else { // next_pid is not available
+      while(proc_table[next_pid] != NULL) {
+        next_pid += 1;
+        if(next_pid > PID_MAX) {
+          next_pid = PID_MIN;
+        }
+      }
+      proc->p_pid = next_pid;
+      proc_table[next_pid] = proc;
+      next_pid += 1;
+    }
+  }else {
+    // we have exceeded PID_MAX, so we have to loop through 
+    next_pid = PID_MIN;
+    while(proc_table[next_pid] != NULL) {
+      next_pid += 1;
+      if(next_pid > PID_MAX) {
+        next_pid = PID_MIN;
+      }
+    }
+    proc->p_pid = next_pid;
+    proc_table[next_pid] = proc;
+    next_pid += 1;
+  }
   proc->p_ppid = curproc->p_pid;
   proc->p_pproc = curproc;
 	proc->p_addrspace = NULL;
@@ -292,14 +334,43 @@ proc_create_runprogram(const char *name)
 #endif // UW
 	  
   /* PID fields */
-  if(curproc->p_pid != 0) {
-    proc->p_pid = curproc->p_pid + 1;
+  if(curproc->p_pid != 0) { // this is not the kernel thread
+    if(next_pid <= PID_MAX) {
+      if(proc_table[next_pid] == NULL) { // next_pid is available
+        proc->p_pid = next_pid;
+        proc_table[next_pid] = proc;
+        next_pid += 1;
+      }else { // next_pid is not available; loop until one is
+        while(proc_table[next_pid] != NULL) {
+          next_pid += 1;
+          if(next_pid > PID_MAX) {
+            next_pid = PID_MIN;
+          }
+        }
+        proc->p_pid = next_pid;
+        proc_table[next_pid] = proc;
+        next_pid += 1;
+      }
+    }else { // we have exceeded PID_MAX, so we have to loop through
+      next_pid = PID_MIN;
+      while(proc_table[next_pid] != NULL) {
+        next_pid += 1;
+        if(next_pid > PID_MAX) {
+          next_pid = PID_MIN;
+        }
+      }
+      proc->p_pid = next_pid;
+      proc_table[next_pid] = proc;
+      next_pid += 1;
+    }
     proc->p_ppid = curproc->p_pid;
     proc->p_pproc = curproc;
-  }else {
-    proc->p_pid = 1;
+  }else { // this is the kernel thread
+    proc->p_pid = PID_MIN; // this should be equal to next_pid at this moment
     proc->p_ppid = 0;
     proc->p_pproc = kproc;
+    proc_table[PID_MIN] = proc;
+    next_pid += 1;
   }
 
 	/* VM fields */
