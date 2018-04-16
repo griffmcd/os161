@@ -1,11 +1,11 @@
-# Makefile for forkbomb
 
 TOP=../../..
 .include "$(TOP)/mk/os161.config.mk"
 
-PROG=forktest
-SRCS=forktest.c
-BINDIR=/testbin
+PROG=forkchain
+SRCS=$(PROG).c
+
+BINDIR=/my-testbin
 
 .include "$(TOP)/mk/os161.prog.mk"
 

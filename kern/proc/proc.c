@@ -51,14 +51,16 @@
 #include <synch.h>
 #include <kern/fcntl.h>  
 #include <limits.h>
+#include <array.h>
+#include <queue.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
-struct proc *kproc;
-struct proc ** proc_table;
-int next_pid;
 
+struct proc *kproc;
+struct array * proc_table;
+int next_pid;
 /*
  * Mechanism for making the kernel menu thread sleep while processes are running
  */
@@ -71,8 +73,6 @@ static struct semaphore *proc_count_mutex;
 /* used to signal the kernel menu thread when there are no processes */
 struct semaphore *no_proc_sem;   
 #endif  // UW
-
-
 
 /*
  * Create a proc structure.
@@ -92,6 +92,10 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
+  /*
+  proc->child_procs = array_create();
+  array_setsize(proc->child_procs, 0);
+  */
 
 	threadarray_init(&proc->p_threads);
 	spinlock_init(&proc->p_lock);
@@ -105,6 +109,7 @@ proc_create(const char *name)
 #ifdef UW
 	proc->console = NULL;
 #endif // UW
+  
 
 	return proc;
 }
@@ -127,8 +132,6 @@ proc_destroy(struct proc *proc)
 
 	KASSERT(proc != NULL);
 	KASSERT(proc != kproc);
-  // clear entry from the proc_table
-  proc_table[proc->p_pid] = NULL;
 
 	/*
 	 * We don't take p_lock in here because we must have the only
@@ -171,6 +174,17 @@ proc_destroy(struct proc *proc)
 
 	threadarray_cleanup(&proc->p_threads);
 	spinlock_cleanup(&proc->p_lock);
+  // set location in proc table to NULL
+  array_set(proc_table, proc->p_pid, NULL);
+  // go through and mark all children as orphans
+  /*
+  for(int i = 0; i < (int)array_num(proc->child_procs); ++i) {
+    struct proc * p = (struct proc *) array_get(proc->child_procs, i);
+    p->p_ppid = 1;
+  }
+  array_setsize(proc->child_procs, 0);
+  array_destroy(proc->child_procs);
+  */
 	kfree(proc->p_name);
 	kfree(proc);
 
@@ -196,8 +210,6 @@ proc_destroy(struct proc *proc)
 void
 proc_bootstrap(void)
 {
-  proc_table = kmalloc(PID_MAX * sizeof(struct proc *));
-  next_pid = PID_MIN;
   kproc = proc_create("[kernel]");
   if (kproc == NULL) {
     panic("proc_create for kproc failed\n");
@@ -214,6 +226,18 @@ proc_bootstrap(void)
     panic("could not create no_proc_sem semaphore\n");
   }
 #endif // UW 
+  // init array of pointers to child processes for kernel
+  /*
+  kproc->child_procs = array_create();
+  array_setsize(kproc->child_procs, 2);
+  */
+
+  // initialize proc_table
+  proc_table = array_create();
+  KASSERT(proc_table != NULL);
+  array_setsize(proc_table, 4);
+  next_pid = PID_MIN; // next_pid = 2
+
 }
 
 struct proc * proc_create_fork(const char *name) {
@@ -235,49 +259,43 @@ struct proc * proc_create_fork(const char *name) {
   }
   kfree(console_path);
 #endif // UW
-  /*
-   * pid allocation. We don't have to check if the pid is 0, 
-   * because fork() will always be called from a user thread, so incrementing
-   * the parent thread's curproc is fine for now
-   *
-   * if the next_pid is less than PID_MAX (and there is not a current 
-   * process in the process table at that index) then we can just use the
-   * next pid. otherwise we have to loop starting from next_pid until we 
-   * find an empty location in the proc_table.
+  /* PID fields */
+  /* we don't have to check if the pid is 0, since fork() will always
+   * be called from a user level thread (is this actually true?)
    */
-  if(next_pid <= PID_MAX) {
-    if(proc_table[next_pid] == NULL) { // next_pid is available
-      proc->p_pid = next_pid;
-      proc_table[next_pid] = proc;
-      next_pid += 1;
-    }else { // next_pid is not available
-      while(proc_table[next_pid] != NULL) {
-        next_pid += 1;
-        if(next_pid > PID_MAX) {
-          next_pid = PID_MIN;
-        }
-      }
-      proc->p_pid = next_pid;
-      proc_table[next_pid] = proc;
-      next_pid += 1;
+  /*
+  if(next_pid > (int) array_num(proc_table)) {
+    int n = array_num(proc_table);
+    if((n*n) > PID_MAX) {
+      n = PID_MAX;
+    }else {
+      n = n*n;
     }
-  }else {
-    // we have exceeded PID_MAX, so we have to loop through 
-    next_pid = PID_MIN;
-    while(proc_table[next_pid] != NULL) {
-      next_pid += 1;
-      if(next_pid > PID_MAX) {
-        next_pid = PID_MIN;
-      }
-    }
-    proc->p_pid = next_pid;
-    proc_table[next_pid] = proc;
-    next_pid += 1;
+    array_setsize(proc_table, n);
   }
+  int i;
+  for(i = 0; i < next_pid; ++i) {
+    if(array_get(proc_table, next_pid) != NULL) {
+      proc->p_pid = i;
+      array_set(proc_table, i, proc);
+      break;
+    }
+  }
+  if(i >= next_pid) {
+    proc->p_pid = next_pid;
+    array_set(proc_table, next_pid, proc);
+    next_pid += 1;
+    if(next_pid > PID_MAX) {
+      next_pid = PID_MIN;
+    }
+  }
+  */
   proc->p_ppid = curproc->p_pid;
   proc->p_pproc = curproc;
 	proc->p_addrspace = NULL;
-
+  /*
+  array_add(curproc->child_procs, proc, NULL);
+  */
 #ifdef UW
 	/* we do not need to acquire the p_lock here, the running thread should
    * have the only reference to this process 
@@ -297,6 +315,7 @@ struct proc * proc_create_fork(const char *name) {
 #endif // UW
 
 #ifdef UW
+  //
 	/* increment the count of processes */
 	P(proc_count_mutex); 
 	proc_count++;
@@ -334,44 +353,49 @@ proc_create_runprogram(const char *name)
 #endif // UW
 	  
   /* PID fields */
-  if(curproc->p_pid != 0) { // this is not the kernel thread
-    if(next_pid <= PID_MAX) {
-      if(proc_table[next_pid] == NULL) { // next_pid is available
-        proc->p_pid = next_pid;
-        proc_table[next_pid] = proc;
-        next_pid += 1;
-      }else { // next_pid is not available; loop until one is
-        while(proc_table[next_pid] != NULL) {
-          next_pid += 1;
-          if(next_pid > PID_MAX) {
-            next_pid = PID_MIN;
-          }
-        }
-        proc->p_pid = next_pid;
-        proc_table[next_pid] = proc;
-        next_pid += 1;
-      }
-    }else { // we have exceeded PID_MAX, so we have to loop through
-      next_pid = PID_MIN;
-      while(proc_table[next_pid] != NULL) {
-        next_pid += 1;
-        if(next_pid > PID_MAX) {
-          next_pid = PID_MIN;
-        }
-      }
-      proc->p_pid = next_pid;
-      proc_table[next_pid] = proc;
-      next_pid += 1;
-    }
-    proc->p_ppid = curproc->p_pid;
-    proc->p_pproc = curproc;
-  }else { // this is the kernel thread
-    proc->p_pid = PID_MIN; // this should be equal to next_pid at this moment
+  if(curproc->p_pid == 0) {
+    proc->p_pid = PID_MIN;
     proc->p_ppid = 0;
     proc->p_pproc = kproc;
-    proc_table[PID_MIN] = proc;
-    next_pid += 1;
+    array_set(proc_table, PID_MIN, proc);
+    ++next_pid;
+  }else if(array_num(proc_table) <= PID_MAX) {
+    // this means we have more PID locations in the proc_table to allocate
+    // we loop from PID_MIN to next_pid first, to see if any already allocated PIDs
+    // have been released. 
+    int i;
+    for(i = PID_MIN; i < next_pid; ++i) {
+      if(array_get(proc_table, i) == NULL) {
+        // found a blank spot
+        proc->p_pid = i;
+        array_set(proc_table, i, proc);
+        break;
+      }
+    }
+    if(i >= next_pid) {
+      // this means we did not find a free pid. We can just add it to the back of
+      // the proc table and increment next_pid, since we know that we have not allocated
+      // more PID space than is allowed, and array_add resizes for us if necessary
+      proc->p_pid = next_pid;
+      array_add(proc_table, proc, NULL);
+      next_pid += 1;
+    }
+  }else {
+    // this means that we have allocated all possible PIDs at least once, and so the 
+    // proc_table is at its maximum size. In this case, we just loop around until we
+    // find a valid spot.
+    while(array_get(proc_table, next_pid) != NULL) {
+      ++next_pid;
+      if(next_pid > PID_MAX) {
+        next_pid = PID_MIN;
+      }
+    }
+    proc->p_pid = next_pid;
+    array_set(proc_table, next_pid, proc);
   }
+  proc->p_ppid = curproc->p_pid;
+  proc->p_pproc = curproc;
+	proc->p_addrspace = NULL;
 
 	/* VM fields */
 
@@ -404,6 +428,10 @@ proc_create_runprogram(const char *name)
 	proc_count++;
 	V(proc_count_mutex);
 #endif // UW
+
+  /*
+  array_add(curproc->child_procs, proc, NULL);
+  */
 
 	return proc;
 }

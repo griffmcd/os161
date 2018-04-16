@@ -3,6 +3,6 @@ TOP=../..
 .include "$(TOP)/mk/os161.config.mk"
 
 # Just add new directories at the end of the line below.
-SUBDIRS= example writeConsole	timeofDay getpid stubtest fork
+SUBDIRS= example writeConsole	timeofDay getpid stubtest fork forkchain forkfan
 
 .include "$(TOP)/mk/os161.subdir.mk"

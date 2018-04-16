@@ -122,7 +122,7 @@ int sys_fork(struct trapframe * tf, pid_t *retval) {
     return ENOMEM;
   }
   // call proc_create_fork to create new proc struct for uproc_thread
-  child_proc = proc_create_fork(curproc->p_name);
+  child_proc = proc_create_runprogram(curproc->p_name);
 
   // fill in address space field of proc struct (as created above)
   child_proc->p_addrspace = child_vmspace;

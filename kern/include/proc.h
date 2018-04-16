@@ -38,6 +38,7 @@
 
 #include <spinlock.h>
 #include <thread.h> /* required for struct threadarray */
+#include <array.h>
 
 struct addrspace;
 struct vnode;
@@ -52,10 +53,10 @@ struct proc {
 	char *p_name;			/* Name of this process */
 	struct spinlock p_lock;		/* Lock for this structure */
 	struct threadarray p_threads;	/* Threads in this process */
-
+  // removing this until we get proc table working
+  // struct array * child_procs; /* children of this process */
 	/* VM */
 	struct addrspace *p_addrspace;	/* virtual address space */
-
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 
@@ -67,24 +68,36 @@ struct proc {
      it has opened, not just the console. */
   struct vnode *console;                /* a vnode for the console device */
 #endif
-
-	/* add more material here as needed */
   pid_t p_pid;
-  // parent process--this is temporary, we won't need it later
   pid_t p_ppid;
   struct proc * p_pproc;
-
-  // this is stuff we'll design and code in labs 11 and 12
-
   // exit, exitcode, and waitpid synchronization stuff
   // need a design for this. syscall specifications requre that a child
   // maintain it's exit status after finishing so long as the parent 
   // may want to do a waitpid
-  
+  // Exit codes are easily represented by an int. 0 indicates successful
+  // return. Maybe 1 indicates still running? -1 for errors? We'll hash it
+  // out as we move forward
+  int exitcode;
   // fork, exit, proc_destroy synch stuff
   // we need a design for child-parent synchronization.
   // when can a proc be destroyed? when must it hang around? for how long?
   // who destroys the proc--self or parent?
+  // A proc can be destroyed when its parent has called a waitpid and received
+  // the exitcode, or if the child process is orphaned
+  // since PID_MIN is two, and pid=0 is reserved for the kernel, we can use 
+  // 1 to indicate a process' parent has terminated before the child process
+  // has completed. 
+  // A process must hang around until the parent calls a waitpid, or the 
+  // parent process indicates to its children that it has terminated
+  // this means whenever a process is destroyed, we have to iterate over
+  // the array and change all of its children's parent pids to 1, to indicate
+  // that its parent has terminated. The child when finished, but before a 
+  // waitpid has been called, will check to see if its parent pid field has 
+  // changed to 1, at which point it can clean itself up (and in the process,
+  // alerting any of ITS children)
+  // the parent destroys the proc, unless its child process has been orphaned
+ 
   // what about all the fields in the proc? When can they be released?
   // Does the kernel have to make sure parents hang around for all their 
   // children to finish? If not, what happens to the orphaned children?
